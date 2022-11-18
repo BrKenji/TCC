@@ -3,3 +3,7 @@ database/
 
 # ignore venv environment
 venv/
+
+test.py
+
+__pycache__
