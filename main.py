@@ -13,7 +13,7 @@ from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler
 # import NN layers and others components
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Dense, BatchNormalization
+from keras.layers import Dense
 from keras.utils import np_utils
 from keras.callbacks import EarlyStopping
 
