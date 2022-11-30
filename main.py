@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Tensorflow and Keras for creating neural network models
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, cohen_kappa_score, log_loss
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler
 
 # import NN layers and others components
@@ -54,6 +54,7 @@ def main():
     
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
+    print(X.shape[1])
     model = Sequential()
     model.add(Dense(8, input_shape=(X.shape[1],), activation='relu'))
     model.add(Dense(3, activation='softmax'))
@@ -108,19 +109,18 @@ def main():
 
     plt.show()
     # ----------------------------------------------------------------------------------------------
-
     # Evaluating the model - Confusio Matrix--------------------------------------------------------
     preds = model.predict(gender_encoded_X)
-    print(preds[0])
-    print(np.sum(preds[0]))
 
     matrix = confusion_matrix(dummy_diag.argmax(axis=1), preds.argmax(axis=1))
     print(matrix)
 
     print(classification_report(dummy_diag.argmax(axis=1), preds.argmax(axis=1)))
 
-    # ----------------------------------------------------------------------------------------------
+    print(f'AUROC score: {roc_auc_score(dummy_diag, preds, average="weighted", multi_class="ovr")}')
 
+    print(f'Cohen Kappa Score: {cohen_kappa_score(dummy_diag, preds)}')
+    # ----------------------------------------------------------------------------------------------
     print("Here Working")
 
 main()
