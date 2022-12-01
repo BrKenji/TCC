@@ -30,18 +30,13 @@ def main():
     scaler = MinMaxScaler()
 
     y = df_L10["Diag"]
-    X = df_L10.drop(['Paciente', 'Diag', 'TOTAL'], axis=1)
+    X_soma = df_L10["SOMA"]
 
     # Fitting SOMA feature large values
     #std_scaler = std_scaler.fit(X["SOMA"].values.reshape(-1, 1))
-    scaler = scaler.fit(X["SOMA"].values.reshape(-1, 1))
-    X["SOMA"] = scaler.transform(X["SOMA"].values.reshape(-1, 1))
-    print(X["SOMA"])
-    # Encoding Gender feature and Diag multi-class label
-    gender_encoded_X = X.copy()
-
-    for col in gender_encoded_X.select_dtypes(include='O').columns:
-        gender_encoded_X[col] = encoder.fit_transform(gender_encoded_X[col])
+    scaler = scaler.fit(X_soma.values.reshape(-1, 1))
+    X_soma = scaler.transform(X_soma.values.reshape(-1, 1))
+    print(X_soma)
     
     encoder.fit(y)
     encoded_diag = encoder.transform(y)
@@ -49,14 +44,13 @@ def main():
     dummy_diag = np_utils.to_categorical(encoded_diag)
 
     # convert to numpy arrays
-    gender_encoded_X = np.array(gender_encoded_X)
+    X_soma = np.array(X_soma)
     # ----------------------------------------------------------------------------------------------
     
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
-    print(X.shape[1])
     model = Sequential()
-    model.add(Dense(8, input_shape=(X.shape[1],), activation='relu'))
+    model.add(Dense(8, input_shape=(X_soma.shape[1],), activation='relu'))
     model.add(Dense(3, activation='softmax'))
     model.summary()
 
@@ -68,7 +62,7 @@ def main():
                         patience=10,
                         restore_best_weights=True)
 
-    history = model.fit(gender_encoded_X,
+    history = model.fit(X_soma,
                         dummy_diag,
                         callbacks=[es],
                         epochs=800000,
@@ -110,7 +104,7 @@ def main():
     plt.show()
     # ----------------------------------------------------------------------------------------------
     # Evaluating the model - Confusio Matrix--------------------------------------------------------
-    preds = model.predict(gender_encoded_X)
+    preds = model.predict(X_soma)
 
     matrix = confusion_matrix(dummy_diag.argmax(axis=1), preds.argmax(axis=1))
     print(matrix)
@@ -118,8 +112,6 @@ def main():
     print(classification_report(dummy_diag.argmax(axis=1), preds.argmax(axis=1)))
 
     print(f'AUROC score: {roc_auc_score(dummy_diag, preds, average="weighted", multi_class="ovr")}')
-
-    print(f'Cohen Kappa Score: {cohen_kappa_score(dummy_diag, preds)}')
     # ----------------------------------------------------------------------------------------------
     print("Here Working")
 
