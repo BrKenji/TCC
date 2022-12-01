@@ -5,3 +5,5 @@ database/
 venv/
 
 __pycache__
+
+test.py

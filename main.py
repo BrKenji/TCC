@@ -8,7 +8,7 @@ import seaborn as sns
 
 # Tensorflow and Keras for creating neural network models
 from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
 # import NN layers and others components
 import tensorflow as tf
@@ -26,7 +26,6 @@ def main():
     df_L10 = df_L10.sample(frac=1).reset_index(drop=True)
 
     encoder = LabelEncoder()
-    #std_scaler = StandardScaler()
     scaler = MinMaxScaler()
 
     y = df_L10["Diag"]
@@ -34,9 +33,7 @@ def main():
 
     # Fitting SOMA feature large values
     #std_scaler = std_scaler.fit(X["SOMA"].values.reshape(-1, 1))
-    scaler = scaler.fit(X["SOMA"].values.reshape(-1, 1))
-    X["SOMA"] = scaler.transform(X["SOMA"].values.reshape(-1, 1))
-    print(X["SOMA"])
+    X["SOMA"] = scaler.fit_transform(X["SOMA"].values.reshape(-1, 1))
     # Encoding Gender feature and Diag multi-class label
     gender_encoded_X = X.copy()
 
@@ -54,7 +51,6 @@ def main():
     
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
-    print(X.shape[1])
     model = Sequential()
     model.add(Dense(8, input_shape=(X.shape[1],), activation='relu'))
     model.add(Dense(3, activation='softmax'))
