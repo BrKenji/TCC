@@ -11,7 +11,15 @@ cardiomyopathy diagnosis of a patient
 * the range will be 0 to 1, and the sum of all the probabilities will be equal to one
 
 # Dataset
-The dateset provide the age, gender, totalSpharm and somaSpharm and diagnostics of 394 pacients, each diagnosed with either CMD, CMH or No anomaly.
+The dateset provides somaSpharm and diagnostics of 394 pacients, each diagnosed with either CMD, CMH or No anomaly.
+
+Example:
+
+Paciente | SOMA | Diag |
+--- | --- | --- |
+1 | -17691052837199900 | SEM |
+102 | -27792643841918000 | CMH |
+284 | -17404489207322700 | CMD |
 
 ## Dataset Diagnostics Values
 * 0 -> CMD
