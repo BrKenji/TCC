@@ -6,9 +6,12 @@ import matplotlib.pyplot as plt
 ## Data visualization package
 import seaborn as sns
 
-# Tensorflow and Keras for creating neural network models
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
+# Sklearn Modules
+from sklearn import svm
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.model_selection import train_test_split
 
 # import NN layers and others components
 import tensorflow as tf
@@ -17,42 +20,95 @@ from keras.layers import Dense
 from keras.utils import np_utils
 from keras.callbacks import EarlyStopping
 
+from itertools import cycle
 
 def main():
 
     # Data pre-selection ----------------------------------------------------------------------------
     df_L10 = pd.read_excel("./database/L10_values_treated(6)_sem_NaN.xlsx")
 
-    df_L10 = df_L10.sample(frac=1).reset_index(drop=True)
+    dict = {0: "CMD", 1: "CMH", 2: "SEM"}
 
     encoder = LabelEncoder()
     scaler = MinMaxScaler()
 
-    y = df_L10["Diag"]
-    X = df_L10.drop(['Paciente', 'Diag', 'TOTAL'], axis=1)
-
+    # Encoding Gênero feature
+    df_L10["Gênero"] = encoder.fit_transform(df_L10["Gênero"])
     # Fitting SOMA feature large values
-    #std_scaler = std_scaler.fit(X["SOMA"].values.reshape(-1, 1))
-    X["SOMA"] = scaler.fit_transform(X["SOMA"].values.reshape(-1, 1))
-    # Encoding Gender feature and Diag multi-class label
-    gender_encoded_X = X.copy()
+    df_L10["SOMA"] = scaler.fit_transform(df_L10["SOMA"].values.reshape(-1, 1))
+    # Encoding Diag label
+    encoder.fit(df_L10["Diag"])
+    df_L10["Diag"] = encoder.transform(df_L10["Diag"])
 
-    for col in gender_encoded_X.select_dtypes(include='O').columns:
-        gender_encoded_X[col] = encoder.fit_transform(gender_encoded_X[col])
-    
-    encoder.fit(y)
-    encoded_diag = encoder.transform(y)
+    y = df_L10["Diag"]
+    X = df_L10.drop(['Paciente', 'Diag', 'TOTAL'], axis=1)    
+
     # convert integers to dummy variables (i.e. one hot encoded)
-    dummy_diag = np_utils.to_categorical(encoded_diag)
-
+    dummy_diag = np_utils.to_categorical(y)
+    n_classes = dummy_diag.shape[1]
     # convert to numpy arrays
-    gender_encoded_X = np.array(gender_encoded_X)
+    X = np.array(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, dummy_diag)
+
+    # OneVsRestClassifier for ROC ------------------------------------------------------------------
+    classifier = OneVsRestClassifier(svm.SVC(kernel="linear", probability=True, random_state=np.random.RandomState(0)))
+    y_score = classifier.fit(X_train, y_train).decision_function(X_test)
+
+    # Compute ROC curve and ROC area for each class
+    fpr = {}
+    tpr ={}
+    roc_auc = {}
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+    
+    # Micro-average ROC Curve and ROC Area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+    # Aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+    # Interpolate all ROC Curves at these points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+    
+    # Avarage it and compute AUC
+    mean_tpr /= n_classes
+    fpr["macro"] = all_fpr
+    tpr["macro"] = mean_tpr
+    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+
+    plt.figure()
+    lw = 2
+
+    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+    for i, color in zip(range(n_classes), colors):
+        plt.plot(
+            fpr[i],
+            tpr[i],
+            color=color,
+            lw=lw,
+            label="ROC curve of class {0} (area = {1:0.2f})".format(dict.get(i), roc_auc[i]),
+        )
+
+    plt.plot([0, 1], [0, 1], "k--", lw=lw)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Some extension of Receiver operating characteristic to multiclass")
+    plt.legend(loc="lower right")
+    plt.show()
+
     # ----------------------------------------------------------------------------------------------
     
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
     model = Sequential()
     model.add(Dense(8, input_shape=(X.shape[1],), activation='relu'))
+    #model.add(Dropout(0.3))
     model.add(Dense(3, activation='softmax'))
     model.summary()
 
@@ -64,18 +120,22 @@ def main():
                         patience=10,
                         restore_best_weights=True)
 
-    history = model.fit(gender_encoded_X,
-                        dummy_diag,
+    history = model.fit(X_train,
+                        y_train,
                         callbacks=[es],
                         epochs=800000,
                         batch_size=10,
                         shuffle=True,
-                        validation_split=0.3,
+                        validation_data=(X_test, y_test),
                         verbose=1)
 
     # ----------------------------------------------------------------------------------------------
 
-    # Evaluating Model - Accuracy and Loss ---------------------------------------------------------
+    # Evaluating Model -----------------------------------------------------------------------------
+    score = model.evaluate(X_test, y_test, verbose=0)
+    print(f'Test Loss: {score[0]}')
+    print(f'Test Accuracy: {score[1]}')
+
     history_dict = history.history
     # Learning Curve - Accuracy
     acc = history_dict['accuracy']
@@ -106,14 +166,15 @@ def main():
     plt.show()
     # ----------------------------------------------------------------------------------------------
     # Evaluating the model - Confusio Matrix--------------------------------------------------------
-    preds = model.predict(gender_encoded_X)
+    y_pred = model.predict(X_test)
 
-    matrix = confusion_matrix(dummy_diag.argmax(axis=1), preds.argmax(axis=1))
+    matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
     print(matrix)
 
-    print(classification_report(dummy_diag.argmax(axis=1), preds.argmax(axis=1)))
+    print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1)))
 
-    print(f'AUROC score: {roc_auc_score(dummy_diag, preds, average="weighted", multi_class="ovr")}')
+    print(f'AUROC score: {roc_auc_score(y_test, y_pred, average="weighted", multi_class="ovr")}')
+
     # ----------------------------------------------------------------------------------------------
     print("Here Working")
 
