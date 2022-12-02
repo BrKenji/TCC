@@ -23,6 +23,8 @@ def main():
     # Data pre-selection ----------------------------------------------------------------------------
     df_L10 = pd.read_excel("./database/L10_values_treated(6)_sem_NaN.xlsx")
 
+    dict = {0: "CMD", 1: "CMH", 2: "SEM"}
+
     df_L10 = df_L10.sample(frac=1).reset_index(drop=True)
 
     encoder = LabelEncoder()
@@ -36,7 +38,6 @@ def main():
     #std_scaler = std_scaler.fit(X["SOMA"].values.reshape(-1, 1))
     scaler = scaler.fit(X_soma.values.reshape(-1, 1))
     X_soma = scaler.transform(X_soma.values.reshape(-1, 1))
-    print(X_soma)
     
     encoder.fit(y)
     encoded_diag = encoder.transform(y)
@@ -44,13 +45,13 @@ def main():
     dummy_diag = np_utils.to_categorical(encoded_diag)
 
     # convert to numpy arrays
-    X_soma = np.array(X_soma)
+    X_soma = np.array(df_L10["SOMA"])
     # ----------------------------------------------------------------------------------------------
     
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
     model = Sequential()
-    model.add(Dense(8, input_shape=(X_soma.shape[1],), activation='relu'))
+    model.add(Dense(8, input_shape=(1,), activation='relu'))
     model.add(Dense(3, activation='softmax'))
     model.summary()
 
@@ -108,6 +109,10 @@ def main():
 
     matrix = confusion_matrix(dummy_diag.argmax(axis=1), preds.argmax(axis=1))
     print(matrix)
+
+    cm = matrix.astype('float') / matrix.sum(axis=1)[:, np.newaxis] 
+    for i in range(len(cm.diagonal())):
+        print(f'{dict.get(i)} accuracy: {cm.diagonal()[i]}')
 
     print(classification_report(dummy_diag.argmax(axis=1), preds.argmax(axis=1)))
 
