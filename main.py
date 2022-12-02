@@ -8,7 +8,7 @@ import seaborn as sns
 
 # Sklearn Modules
 from sklearn import svm
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc, RocCurveDisplay
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.model_selection import train_test_split
@@ -170,11 +170,14 @@ def main():
 
     matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
     print(matrix)
-
+    cm = matrix.astype('float') / matrix.sum(axis=1)[:, np.newaxis] 
+    for i in range(len(cm.diagonal())):
+        print(f'{dict.get(i)} accuracy: {cm.diagonal()[i]}')
+        
     print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1)))
-
+    
     print(f'AUROC score: {roc_auc_score(y_test, y_pred, average="weighted", multi_class="ovr")}')
-
+    
     # ----------------------------------------------------------------------------------------------
     print("Here Working")
 
