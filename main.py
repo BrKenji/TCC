@@ -107,7 +107,7 @@ def main():
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
     model = Sequential()
-    model.add(Dense(16, input_shape=(X.shape[1],), activation='relu'))
+    model.add(Dense(8, input_shape=(X.shape[1],), activation='relu'))
     #model.add(Dropout(0.3))
     model.add(Dense(3, activation='softmax'))
     model.summary()
