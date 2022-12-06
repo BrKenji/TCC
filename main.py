@@ -50,59 +50,6 @@ def main():
     X = np.array(X)
 
     X_train, X_test, y_train, y_test = train_test_split(X, dummy_diag)
-
-    # OneVsRestClassifier for ROC ------------------------------------------------------------------
-    classifier = OneVsRestClassifier(svm.SVC(kernel="linear", probability=True, random_state=np.random.RandomState(0)))
-    y_score = classifier.fit(X_train, y_train).decision_function(X_test)
-
-    # Compute ROC curve and ROC area for each class
-    fpr = {}
-    tpr ={}
-    roc_auc = {}
-    for i in range(n_classes):
-        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
-    
-    # Micro-average ROC Curve and ROC Area
-    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
-    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
-
-    # Aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
-    # Interpolate all ROC Curves at these points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(n_classes):
-        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
-    
-    # Avarage it and compute AUC
-    mean_tpr /= n_classes
-    fpr["macro"] = all_fpr
-    tpr["macro"] = mean_tpr
-    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
-
-    plt.figure()
-    lw = 2
-
-    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
-    for i, color in zip(range(n_classes), colors):
-        plt.plot(
-            fpr[i],
-            tpr[i],
-            color=color,
-            lw=lw,
-            label="ROC curve of class {0} (area = {1:0.2f})".format(dict.get(i), roc_auc[i]),
-        )
-
-    plt.plot([0, 1], [0, 1], "k--", lw=lw)
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("Some extension of Receiver operating characteristic to multiclass")
-    plt.legend(loc="lower right")
-    plt.show()
-
-    # ----------------------------------------------------------------------------------------------
     
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
@@ -178,6 +125,56 @@ def main():
     
     print(f'AUROC score: {roc_auc_score(y_test, y_pred, average="weighted", multi_class="ovr")}')
     
+    # ----------------------------------------------------------------------------------------------
+
+    # ROC Curve metric -----------------------------------------------------------------------------
+    # Compute ROC curve and ROC area for each class
+    fpr = {}
+    tpr ={}
+    roc_auc = {}
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_pred[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+    
+    # Micro-average ROC Curve and ROC Area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_pred.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+    # Aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+    # Interpolate all ROC Curves at these points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+    
+    # Avarage it and compute AUC
+    mean_tpr /= n_classes
+    fpr["macro"] = all_fpr
+    tpr["macro"] = mean_tpr
+    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+
+    plt.figure()
+    lw = 2
+
+    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+    for i, color in zip(range(n_classes), colors):
+        plt.plot(
+            fpr[i],
+            tpr[i],
+            color=color,
+            lw=lw,
+            label="ROC curve of class {0} (area = {1:0.2f})".format(dict.get(i), roc_auc[i]),
+        )
+
+    plt.plot([0, 1], [0, 1], "k--", lw=lw)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Some extension of Receiver operating characteristic to multiclass")
+    plt.legend(loc="lower right")
+    plt.show()
+
     # ----------------------------------------------------------------------------------------------
     print("Here Working")
 
