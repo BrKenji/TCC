@@ -47,7 +47,7 @@ def main():
     # convert to numpy arrays
     X = np.array(X)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, dummy_diag)
+    X_train, X_test, y_train, y_test = train_test_split(X, dummy_diag, random_state=1)
 
     # ----------------------------------------------------------------------------------------------
     
