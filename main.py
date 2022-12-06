@@ -7,10 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Sklearn Modules
-from sklearn import svm
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc, RocCurveDisplay
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
-from sklearn.multiclass import OneVsRestClassifier
 from sklearn.model_selection import train_test_split
 
 # import NN layers and others components
@@ -55,7 +53,6 @@ def main():
     # Build a network
     model = Sequential()
     model.add(Dense(16, input_shape=(X.shape[1],), activation='relu'))
-    #model.add(Dropout(0.3))
     model.add(Dense(3, activation='softmax'))
     model.summary()
 
