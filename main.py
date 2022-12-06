@@ -99,7 +99,7 @@ def main():
     # Plotting
     plt.plot(epochs, acc, 'r', label='Training Accuracy')
     plt.plot(epochs, val_acc, 'b', label='Validation Accuracy')
-    plt.title('Training and Validation Accuracy')
+    plt.title(f'Training and Validation Accuracy with {n_hidden} Hidden Layer Nodes')
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
     plt.legend()
