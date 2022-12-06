@@ -25,6 +25,8 @@ def main():
     # Data pre-selection ----------------------------------------------------------------------------
     df_L10 = pd.read_excel("./database/L10_values_treated(6)_sem_NaN.xlsx")
 
+    n_hidden = int(input("Número de nós na camada oculta: "))
+
     dict = {0: "CMD", 1: "CMH", 2: "SEM"}
 
     encoder = LabelEncoder()
@@ -54,7 +56,7 @@ def main():
     # Defining Model -------------------------------------------------------------------------------
     # Build a network
     model = Sequential()
-    model.add(Dense(8, input_shape=(X.shape[1],), activation='relu'))
+    model.add(Dense(n_hidden, input_shape=(X.shape[1],), activation='relu'))
     #model.add(Dropout(0.3))
     model.add(Dense(3, activation='softmax'))
     model.summary()
@@ -113,17 +115,17 @@ def main():
     plt.show()
     # ----------------------------------------------------------------------------------------------
     # Evaluating the model - Confusio Matrix--------------------------------------------------------
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(X)
 
-    matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+    matrix = confusion_matrix(dummy_diag.argmax(axis=1), y_pred.argmax(axis=1))
     print(matrix)
     cm = matrix.astype('float') / matrix.sum(axis=1)[:, np.newaxis] 
     for i in range(len(cm.diagonal())):
         print(f'{dict.get(i)} accuracy: {cm.diagonal()[i]}')
         
-    print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1)))
+    print(classification_report(dummy_diag.argmax(axis=1), y_pred.argmax(axis=1)))
     
-    print(f'AUROC score: {roc_auc_score(y_test, y_pred, average="weighted", multi_class="ovr")}')
+    print(f'AUROC score: {roc_auc_score(dummy_diag, y_pred, average="weighted", multi_class="ovr")}')
     
     # ----------------------------------------------------------------------------------------------
 
@@ -133,11 +135,11 @@ def main():
     tpr ={}
     roc_auc = {}
     for i in range(n_classes):
-        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_pred[:, i])
+        fpr[i], tpr[i], _ = roc_curve(dummy_diag[:, i], y_pred[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
     
     # Micro-average ROC Curve and ROC Area
-    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_pred.ravel())
+    fpr["micro"], tpr["micro"], _ = roc_curve(dummy_diag.ravel(), y_pred.ravel())
     roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
 
     # Aggregate all false positive rates
@@ -171,7 +173,7 @@ def main():
     plt.ylim([0.0, 1.05])
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("Some extension of Receiver operating characteristic to multiclass with y_pred")
+    plt.title(f"Some extension of ROC to multiclass with {n_hidden} hidden layer neurons")
     plt.legend(loc="lower right")
     plt.show()
     # ----------------------------------------------------------------------------------------------
