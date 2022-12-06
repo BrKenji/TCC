@@ -7,10 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Sklearn Modules
-from sklearn import svm
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc, RocCurveDisplay
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, roc_curve, auc
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
-from sklearn.multiclass import OneVsRestClassifier
 from sklearn.model_selection import train_test_split
 
 # import NN layers and others components
@@ -116,8 +114,7 @@ def main():
     # ----------------------------------------------------------------------------------------------
     # Evaluating the model - Confusio Matrix--------------------------------------------------------
     y_pred = model.predict(X_test)
-    print("----------------------------------y_pred----------------------------------")
-    print(y_pred)
+
     matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
     print(matrix)
     cm = matrix.astype('float') / matrix.sum(axis=1)[:, np.newaxis] 
