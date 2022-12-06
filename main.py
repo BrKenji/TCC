@@ -24,6 +24,17 @@ def main():
 
     # Data pre-selection ----------------------------------------------------------------------------
     df_L10 = pd.read_excel("./database/L10_values_treated(6)_sem_NaN.xlsx")
+    df_L10 = df_L10.sample(frac=1)
+
+    features = []
+
+    while (True):
+        desiredFeature = str(input("Feature a ser usada: "))
+        if (desiredFeature == ""):
+            break
+        else:
+            features.append(desiredFeature)
+        
 
     n_hidden = int(input("Número de nós na camada oculta: "))
 
@@ -41,7 +52,11 @@ def main():
     df_L10["Diag"] = encoder.transform(df_L10["Diag"])
 
     y = df_L10["Diag"]
-    X = df_L10.drop(['Paciente', 'Diag', 'TOTAL'], axis=1)    
+    X = pd.DataFrame()
+    for i in features:
+        X[i] = df_L10[i]
+
+    #X = df_L10.drop(['Paciente', 'Diag', 'TOTAL'], axis=1)    
 
     # convert integers to dummy variables (i.e. one hot encoded)
     dummy_diag = np_utils.to_categorical(y)
@@ -76,7 +91,7 @@ def main():
                         batch_size=10,
                         shuffle=True,
                         validation_data=(X_test, y_test),
-                        verbose=1)
+                        verbose=2)
 
     # ----------------------------------------------------------------------------------------------
 
