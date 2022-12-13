@@ -20,58 +20,9 @@ from keras.callbacks import EarlyStopping
 
 from itertools import cycle
 
-def main():
-
-    # Data pre-selection ----------------------------------------------------------------------------
-    df_L10 = pd.read_excel("./database/L10_values_treated(6)_sem_NaN.xlsx")
-    df_L10 = df_L10.sample(frac=1)
-
-    features = []
-
-    while (True):
-        desiredFeature = str(input("Feature a ser usada: "))
-        if (desiredFeature == ""):
-            break
-        else:
-            features.append(desiredFeature)
-        
-
-    n_hidden = int(input("Número de nós na camada oculta: "))
-
-    dict = {0: "CMD", 1: "CMH", 2: "SEM"}
-
-    encoder = LabelEncoder()
-    scaler = MinMaxScaler()
-
-    # Encoding Gênero feature
-    df_L10["Gênero"] = encoder.fit_transform(df_L10["Gênero"])
-    # Fitting SOMA feature large values
-    df_L10["SOMA"] = scaler.fit_transform(df_L10["SOMA"].values.reshape(-1, 1))
-    # Encoding Diag label
-    encoder.fit(df_L10["Diag"])
-    df_L10["Diag"] = encoder.transform(df_L10["Diag"])
-
-    y = df_L10["Diag"]
-    X = pd.DataFrame()
-    for i in features:
-        X[i] = df_L10[i]
-
-    #X = df_L10.drop(['Paciente', 'Diag', 'TOTAL'], axis=1)    
-
-    # convert integers to dummy variables (i.e. one hot encoded)
-    dummy_diag = np_utils.to_categorical(y)
-    n_classes = dummy_diag.shape[1]
-    # convert to numpy arrays
-    X = np.array(X)
-
-    X_train, X_test, y_train, y_test = train_test_split(X, dummy_diag, random_state=1)
-
-    # ----------------------------------------------------------------------------------------------
-    
-    # Defining Model -------------------------------------------------------------------------------
-    # Build a network
+def buildMLP(n_hidden, input_number):
     model = Sequential()
-    model.add(Dense(n_hidden, input_shape=(X.shape[1],), activation='relu'))
+    model.add(Dense(n_hidden, input_shape=(input_number,), activation='relu'))
     #model.add(Dropout(0.3))
     model.add(Dense(3, activation='softmax'))
     model.summary()
@@ -79,10 +30,11 @@ def main():
     # Compile neural network
     model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    es = EarlyStopping(monitor='val_loss',
-                        mode='min',
-                        patience=10,
-                        restore_best_weights=True)
+    return model
+
+def trainMLP(model, X_train, X_test, y_train, y_test):
+
+    es = EarlyStopping(monitor='val_loss', mode='min', patience=10, restore_best_weights=True)
 
     history = model.fit(X_train,
                         y_train,
@@ -92,6 +44,106 @@ def main():
                         shuffle=True,
                         validation_data=(X_test, y_test),
                         verbose=2)
+
+    return history
+
+def userChooseFeatures():
+    features = []
+    features_for_results_file = []
+
+    while (True):
+        desiredFeature = str(input("Feature a ser usada: ")).upper()
+        if (desiredFeature == ""):
+            break
+        else:
+            features_for_results_file.append(desiredFeature)
+            if (desiredFeature == "OCTANTE"):
+                for i in range(8):
+                    features.append(f"L10_O{i + 1}")
+            else:
+                features.append(desiredFeature)
+    
+    return features, features_for_results_file
+
+def saveDataToCsv(dictionary, df):
+    df = df.append(dictionary, ignore_index=True)
+    df.to_csv("testing_results.csv", index=False)
+
+def plotAccuracyLoss(training_value, validation_value, epochs, mode, n_hidden):
+    plot_title, plot_ylabel , val_label, training_label= "", "", "", ""
+
+    match (mode):
+        case "acc":
+            plot_ylabel = "Accuracy"
+            plot_title = f'Training and Validation {plot_ylabel} with {n_hidden} Hidden Layer Nodes'
+            val_label, training_label = f'Training {plot_ylabel}', f'Validation {plot_ylabel}'
+        case "loss":
+            plot_ylabel = "Loss"
+            plot_title = f'Training and Validation {plot_ylabel} with {n_hidden} Hidden Layer Nodes'
+            val_label, training_label = f'Training {plot_ylabel}', f'Validation {plot_ylabel}'
+
+    plt.figure()
+    plt.plot(epochs, training_value, 'r', label=training_label)
+    plt.plot(epochs, validation_value, 'b', label=val_label)
+    plt.title(plot_title)
+    plt.xlabel('Epochs')
+    plt.ylabel(plot_ylabel)
+    plt.legend()
+    plt.show()
+
+def main():
+
+    # Data pre-selection ----------------------------------------------------------------------------
+    df_L10 = pd.read_excel("./database/L10_values_treated(8)_sem_NaN.xlsm")
+    df_L10 = df_L10.sample(frac=1)
+
+    try:
+        results_df = pd.read_csv("./testing_results.csv")
+    except FileNotFoundError:
+        df = pd.DataFrame(columns=['features', 'neurons', 'epochs', 'CMD_Accuracy', 'CMH_Accuracy', 'SEM_Accuracy', 'CMD_ROC', 'CMH_ROC', 'SEM_ROC'])
+        df.to_csv("testing_results.csv", index=False)
+        results_df = pd.read_csv("./testing_results.csv")
+
+    encoder = LabelEncoder()
+    scaler = MinMaxScaler()
+
+    # Encoding Gênero feature
+    df_L10["GENDER"] = encoder.fit_transform(df_L10["GENDER"])
+    # Fitting SOMA feature large values
+    df_L10["SOMA"] = scaler.fit_transform(df_L10["SOMA"].values.reshape(-1, 1))
+    # Encoding Diag label
+    encoder.fit(df_L10["DIAG"])
+    df_L10["DIAG"] = encoder.transform(df_L10["DIAG"])
+
+    for i in range(8):
+        df_L10[f"L10_O{i + 1}"] = scaler.fit_transform(df_L10[f"L10_O{i + 1}"].values.reshape(-1, 1))
+
+    features, results_features = userChooseFeatures()
+
+    n_hidden = int(input("Número de nós na camada oculta: "))
+
+    diag_dict = {0: "CMD", 1: "CMH", 2: "SEM"}
+
+    y = df_L10["DIAG"]
+    X = pd.DataFrame()
+
+    for i in features:
+        X[i] = df_L10[i]    
+
+    # convert integers to dummy variables (i.e. one hot encoded)
+    dummy_diag = np_utils.to_categorical(y)
+    n_classes = dummy_diag.shape[1]
+    # convert to numpy arrays
+    X = np.array(X)
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, dummy_diag, random_state=1)
+
+    # ----------------------------------------------------------------------------------------------
+    
+    # Defining Model -------------------------------------------------------------------------------
+    model = buildMLP(n_hidden, X.shape[1])
+
+    history = trainMLP(model, X_train, X_test, y_train, y_test)
 
     # ----------------------------------------------------------------------------------------------
 
@@ -109,25 +161,13 @@ def main():
     loss = history_dict['loss']
     val_loss = history_dict['val_loss']
 
-    epochs = range(1, len(acc) + 1)
+    n_epochs = len(acc) + 1
+    epochs = range(1, n_epochs)
 
     # Plotting
-    plt.plot(epochs, acc, 'r', label='Training Accuracy')
-    plt.plot(epochs, val_acc, 'b', label='Validation Accuracy')
-    plt.title(f'Training and Validation Accuracy with {n_hidden} Hidden Layer Nodes')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
+    plotAccuracyLoss(acc, val_acc, epochs, "acc", n_hidden)
+    #plotAccuracyLoss(loss, val_loss, epochs, "loss", n_hidden)
 
-    #plt.figure()
-    #plt.plot(epochs, loss, 'r', label='Training Loss')
-    #plt.plot(epochs, val_loss, 'b', label='Validation Loss')
-    #plt.title('Training and Validation Loss')
-    #plt.xlabel('Epochs')
-    #plt.ylabel('Loss')
-    #plt.legend()
-
-    plt.show()
     # ----------------------------------------------------------------------------------------------
     # Evaluating the model - Confusio Matrix--------------------------------------------------------
     y_pred = model.predict(X)
@@ -135,8 +175,21 @@ def main():
     matrix = confusion_matrix(dummy_diag.argmax(axis=1), y_pred.argmax(axis=1))
     print(matrix)
     cm = matrix.astype('float') / matrix.sum(axis=1)[:, np.newaxis] 
+
+    cmd_acc, cmh_acc, sem_acc = 0, 0, 0
+
     for i in range(len(cm.diagonal())):
-        print(f'{dict.get(i)} accuracy: {cm.diagonal()[i]}')
+        diagnose_predicted = diag_dict.get(i)
+        pred_acc = round(cm.diagonal()[i] * 100, 2)
+        match (diagnose_predicted):
+            case 'SEM':
+                sem_acc = pred_acc
+            case 'CMD':
+                cmd_acc = pred_acc
+            case 'CMH':
+                cmh_acc = pred_acc
+                
+        print(f'{diagnose_predicted} accuracy: {cm.diagonal()[i]}')
         
     print(classification_report(dummy_diag.argmax(axis=1), y_pred.argmax(axis=1)))
     
@@ -174,14 +227,29 @@ def main():
     lw = 2
 
     colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+    print("ROC START------------")
+    cmd_roc, cmh_roc, sem_roc = 0, 0, 0
     for i, color in zip(range(n_classes), colors):
         plt.plot(
             fpr[i],
             tpr[i],
             color=color,
             lw=lw,
-            label="ROC curve of class {0} (area = {1:0.2f})".format(dict.get(i), roc_auc[i]),
+            label="ROC curve of class {0} (area = {1:0.2f})".format(diag_dict.get(i), roc_auc[i]),
         )
+        
+        roc_pred_diag = diag_dict.get(i)
+        print(f"diag_dict.get(i): {roc_pred_diag}")
+        print(f"cmd_roc: {cmd_roc} - cmh_roc: {cmh_roc} - sem_roc: {sem_roc}")
+        pred_roc = round(roc_auc[i] * 100, 2)
+        print(f"pred_roc: {pred_roc}")
+        match (roc_pred_diag):
+            case 'SEM':
+                sem_roc = pred_roc
+            case 'CMD':
+                cmd_roc = pred_roc
+            case 'CMH':
+                cmh_roc = pred_roc        
 
     plt.plot([0, 1], [0, 1], "k--", lw=lw)
     plt.xlim([0.0, 1.0])
@@ -192,6 +260,22 @@ def main():
     plt.legend(loc="lower right")
     plt.show()
     # ----------------------------------------------------------------------------------------------
+
+    # Saving results
+    d = {
+        "features": results_features,
+        "neurons": n_hidden,
+        "epochs": n_epochs,
+        "CMD_Accuracy": cmd_acc,
+        "CMH_Accuracy": cmh_acc,
+        "SEM_Accuracy": sem_acc,
+        "CMD_ROC": cmd_roc,
+        "CMH_ROC": cmh_roc,
+        "SEM_ROC": sem_roc
+    }
+
+    saveDataToCsv(d, results_df)
+
     print("Here Working")
 
 main()
