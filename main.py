@@ -43,10 +43,11 @@ def trainMLP(model, X_train, X_test, y_train, y_test):
                         batch_size=10,
                         shuffle=True,
                         validation_data=(X_test, y_test),
-                        verbose=2)
+                        verbose=0)
 
     return history
 
+# Get user input
 def userChooseFeatures():
     features = []
     features_for_results_file = []
@@ -65,10 +66,23 @@ def userChooseFeatures():
     
     return features, features_for_results_file
 
+# Save the MLP info and performance
 def saveDataToCsv(dictionary, df):
     df = df.append(dictionary, ignore_index=True)
     df.to_csv("testing_results.csv", index=False)
 
+# Get or Create and get results test
+def getTestingResultsDf():
+    try:
+        results_df = pd.read_csv("./testing_results.csv")
+    except FileNotFoundError:
+        df = pd.DataFrame(columns=['features', 'neurons', 'epochs', 'CMD_Accuracy', 'CMH_Accuracy', 'SEM_Accuracy', 'CMD_ROC', 'CMH_ROC', 'SEM_ROC'])
+        df.to_csv("testing_results.csv", index=False)
+        results_df = pd.read_csv("./testing_results.csv")
+
+    return results_df
+
+# Plot accuracy or loss curves
 def plotAccuracyLoss(training_value, validation_value, epochs, mode, n_hidden):
     plot_title, plot_ylabel , val_label, training_label= "", "", "", ""
 
@@ -91,18 +105,74 @@ def plotAccuracyLoss(training_value, validation_value, epochs, mode, n_hidden):
     plt.legend()
     plt.show()
 
+# Plot ROC Curves for each class and return the areas
+def rocModelEvaluation(diag_dict, n_classes, dummy_y, y_pred, n_hidden):
+    # Compute ROC curve and ROC area for each class
+    fpr = {}
+    tpr = {}
+    roc_auc = {}
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(dummy_y[:, i], y_pred[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    # Micro-average ROC Curve and ROC Area
+    fpr["micro"], tpr["micro"], _ = roc_curve(dummy_y.ravel(), y_pred.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+
+    # Aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+    mean_tpr = np.zeros_like(all_fpr)
+
+    for i in range(n_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+    
+    # Avarage it and compute AUC
+    mean_tpr /= n_classes
+    fpr["macro"] = all_fpr
+    tpr["macro"] = mean_tpr
+    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+
+    plt.figure()
+    lw = 2
+
+    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
+
+    cmd_roc, cmh_roc, sem_roc = 0, 0, 0
+    for i, color in zip(range(n_classes), colors):
+        plt.plot(
+            fpr[i],
+            tpr[i],
+            color=color,
+            lw=lw,
+            label="ROC curve of class {0} (area = {1:0.2f})".format(diag_dict.get(i), roc_auc[i]),
+        )
+        
+        roc_pred_diag = diag_dict.get(i)
+        pred_roc = round(roc_auc[i] * 100, 2)
+        match (roc_pred_diag):
+            case 'SEM':
+                sem_roc = pred_roc
+            case 'CMD':
+                cmd_roc = pred_roc
+            case 'CMH':
+                cmh_roc = pred_roc        
+
+    plt.plot([0, 1], [0, 1], "k--", lw=lw)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"Some extension of ROC to multiclass with {n_hidden} hidden layer neurons")
+    plt.legend(loc="lower right")
+    plt.show()
+
+    return cmd_roc, cmh_roc, sem_roc
+
 def main():
-
     # Data pre-selection ----------------------------------------------------------------------------
-    df_L10 = pd.read_excel("./database/L10_values_treated(8)_sem_NaN.xlsm")
-    df_L10 = df_L10.sample(frac=1)
+    df_L10 = pd.read_excel("./database/L10_values_treated(8)_sem_NaN.xlsm").sample(frac=1)
 
-    try:
-        results_df = pd.read_csv("./testing_results.csv")
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=['features', 'neurons', 'epochs', 'CMD_Accuracy', 'CMH_Accuracy', 'SEM_Accuracy', 'CMD_ROC', 'CMH_ROC', 'SEM_ROC'])
-        df.to_csv("testing_results.csv", index=False)
-        results_df = pd.read_csv("./testing_results.csv")
+    results_df = getTestingResultsDf()
 
     encoder = LabelEncoder()
     scaler = MinMaxScaler()
@@ -198,67 +268,9 @@ def main():
     # ----------------------------------------------------------------------------------------------
 
     # ROC Evaluation Metric ------------------------------------------------------------------------
-    # Compute ROC curve and ROC area for each class
-    fpr = {}
-    tpr ={}
-    roc_auc = {}
-    for i in range(n_classes):
-        fpr[i], tpr[i], _ = roc_curve(dummy_diag[:, i], y_pred[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
     
-    # Micro-average ROC Curve and ROC Area
-    fpr["micro"], tpr["micro"], _ = roc_curve(dummy_diag.ravel(), y_pred.ravel())
-    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+    cmd_roc, cmh_roc, sem_roc = rocModelEvaluation(diag_dict, n_classes, dummy_diag, y_pred, n_hidden)
 
-    # Aggregate all false positive rates
-    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
-    # Interpolate all ROC Curves at these points
-    mean_tpr = np.zeros_like(all_fpr)
-    for i in range(n_classes):
-        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
-    
-    # Avarage it and compute AUC
-    mean_tpr /= n_classes
-    fpr["macro"] = all_fpr
-    tpr["macro"] = mean_tpr
-    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
-
-    plt.figure()
-    lw = 2
-
-    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
-    print("ROC START------------")
-    cmd_roc, cmh_roc, sem_roc = 0, 0, 0
-    for i, color in zip(range(n_classes), colors):
-        plt.plot(
-            fpr[i],
-            tpr[i],
-            color=color,
-            lw=lw,
-            label="ROC curve of class {0} (area = {1:0.2f})".format(diag_dict.get(i), roc_auc[i]),
-        )
-        
-        roc_pred_diag = diag_dict.get(i)
-        print(f"diag_dict.get(i): {roc_pred_diag}")
-        print(f"cmd_roc: {cmd_roc} - cmh_roc: {cmh_roc} - sem_roc: {sem_roc}")
-        pred_roc = round(roc_auc[i] * 100, 2)
-        print(f"pred_roc: {pred_roc}")
-        match (roc_pred_diag):
-            case 'SEM':
-                sem_roc = pred_roc
-            case 'CMD':
-                cmd_roc = pred_roc
-            case 'CMH':
-                cmh_roc = pred_roc        
-
-    plt.plot([0, 1], [0, 1], "k--", lw=lw)
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"Some extension of ROC to multiclass with {n_hidden} hidden layer neurons")
-    plt.legend(loc="lower right")
-    plt.show()
     # ----------------------------------------------------------------------------------------------
 
     # Saving results
